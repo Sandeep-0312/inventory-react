@@ -1,15 +1,21 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 
+const API = process.env.REACT_APP_API_URL;
+
 function App() {
   const [products, setProducts] = useState([]);
   const [search, setSearch] = useState("");
 
-  useEffect(() => {
+  const fetchProducts = () => {
     axios
-      .get("http://127.0.0.1:8000/products/")
+      .get(`${API}/products/`)
       .then((res) => setProducts(res.data.products))
       .catch((err) => console.log(err));
+  };
+
+  useEffect(() => {
+    fetchProducts();
   }, []);
 
   const addProduct = () => {
@@ -18,12 +24,8 @@ function App() {
     const price = document.getElementById("price").value;
 
     axios
-      .post("http://127.0.0.1:8000/products/add/", {
-        name,
-        quantity,
-        price,
-      })
-      .then(() => window.location.reload())
+      .post(`${API}/products/add/`, { name, quantity, price })
+      .then(fetchProducts)
       .catch((err) => console.log(err));
   };
 
@@ -35,20 +37,20 @@ function App() {
     if (!newName || !newQuantity || !newPrice) return;
 
     axios
-      .post(`http://127.0.0.1:8000/products/edit/${product.id}/`, {
+      .post(`${API}/products/edit/${product.id}/`, {
         name: newName,
         quantity: newQuantity,
         price: newPrice,
       })
-      .then(() => window.location.reload())
+      .then(fetchProducts)
       .catch((err) => console.log(err));
   };
 
   const deleteProduct = (id) => {
     if (window.confirm("Are you sure?")) {
       axios
-        .post(`http://127.0.0.1:8000/products/delete/${id}/`)
-        .then(() => window.location.reload())
+        .post(`${API}/products/delete/${id}/`)
+        .then(fetchProducts)
         .catch((err) => console.log(err));
     }
   };
