@@ -2,8 +2,8 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 
 /* ================= CONFIG ================= */
-const API = process.env.REACT_APP_API_URL; // MUST exist in Vercel
-const AUTH_API = `${API}/api/token/`; // SimpleJWT endpoint
+const API = process.env.REACT_APP_API_URL; // Railway backend
+const AUTH_API = `${API}/auth/login/`;     // ✅ CORRECT for your backend
 
 function App() {
   /* ================= TOAST ================= */
@@ -34,23 +34,30 @@ function App() {
       return;
     }
 
-    axios
-      .post(AUTH_API, {
+    axios.post(
+      AUTH_API,
+      {
         username: loginForm.username,
         password: loginForm.password,
-      })
-      .then((res) => {
-        localStorage.setItem("access", res.data.access);
-        localStorage.setItem("refresh", res.data.refresh);
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    )
+    .then((res) => {
+      localStorage.setItem("access", res.data.access);
+      localStorage.setItem("refresh", res.data.refresh);
 
-        setIsLoggedIn(true);
-        showToast("Login successful");
-        fetchProducts();
-      })
-      .catch((err) => {
-        console.error(err.response?.data);
-        showToast("Invalid username or password", "error");
-      });
+      setIsLoggedIn(true);
+      showToast("Login successful");
+      fetchProducts();
+    })
+    .catch((err) => {
+      console.error("Login error:", err.response?.data);
+      showToast("Invalid username or password", "error");
+    });
   };
 
   const logout = () => {
@@ -245,23 +252,15 @@ function App() {
         </tbody>
       </table>
 
-      {isModalOpen && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modal}>
-            <input value={editForm.name} onChange={(e)=>setEditForm({...editForm,name:e.target.value})} style={styles.input}/>
-            <input value={editForm.quantity} onChange={(e)=>setEditForm({...editForm,quantity:e.target.value})} style={styles.inputSmall}/>
-            <input value={editForm.price} onChange={(e)=>setEditForm({...editForm,price:e.target.value})} style={styles.inputSmall}/>
-            <div style={{ marginTop: 10 }}>
-              <button onClick={submitEdit} style={styles.primaryBtn}>Save</button>
-              <button onClick={() => setIsModalOpen(false)} style={styles.ghostBtn}>Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div style={styles.toastContainer}>
         {toasts.map((t) => (
-          <div key={t.id} style={{ ...styles.toast, background: t.type === "error" ? "#d9534f" : "#1d9a6c" }}>
+          <div
+            key={t.id}
+            style={{
+              ...styles.toast,
+              background: t.type === "error" ? "#d9534f" : "#1d9a6c",
+            }}
+          >
             {t.message}
           </div>
         ))}
@@ -286,8 +285,6 @@ const styles = {
   theadRow:{background:"#007bff",color:"#fff"},
   th:{padding:12},
   td:{padding:12,border:"1px solid #eee"},
-  modalOverlay:{position:"fixed",inset:0,background:"rgba(0,0,0,.4)",display:"flex",justifyContent:"center",alignItems:"center"},
-  modal:{background:"#fff",padding:20,borderRadius:8},
   toastContainer:{position:"fixed",top:20,right:20},
   toast:{color:"#fff",padding:10,borderRadius:6,marginBottom:6}
 };
