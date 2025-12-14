@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 
-const API = process.env.REACT_APP_API_URL || "http://127.0.0.1:8000";
-const AUTH_API = `${API}/auth/login/`;
+/* ================= CONFIG ================= */
+const API = process.env.REACT_APP_API_URL; // MUST exist in Vercel
+const AUTH_API = `${API}/api/token/`; // SimpleJWT endpoint
 
 function App() {
   /* ================= TOAST ================= */
@@ -34,15 +35,22 @@ function App() {
     }
 
     axios
-      .post(AUTH_API, loginForm)
+      .post(AUTH_API, {
+        username: loginForm.username,
+        password: loginForm.password,
+      })
       .then((res) => {
         localStorage.setItem("access", res.data.access);
         localStorage.setItem("refresh", res.data.refresh);
+
         setIsLoggedIn(true);
         showToast("Login successful");
         fetchProducts();
       })
-      .catch(() => showToast("Invalid credentials", "error"));
+      .catch((err) => {
+        console.error(err.response?.data);
+        showToast("Invalid username or password", "error");
+      });
   };
 
   const logout = () => {
@@ -85,8 +93,10 @@ function App() {
     const quantity = document.getElementById("quantity").value;
     const price = document.getElementById("price").value;
 
-    if (!name || isNaN(quantity) || isNaN(price))
-      return showToast("Invalid input", "error");
+    if (!name || isNaN(quantity) || isNaN(price)) {
+      showToast("Invalid input", "error");
+      return;
+    }
 
     axios
       .post(
@@ -136,6 +146,7 @@ function App() {
     return (
       <div style={{ ...styles.container, maxWidth: 360 }}>
         <h2 style={{ textAlign: "center" }}>Login</h2>
+
         <input
           placeholder="Username"
           style={styles.input}
@@ -143,6 +154,7 @@ function App() {
             setLoginForm({ ...loginForm, username: e.target.value })
           }
         />
+
         <input
           type="password"
           placeholder="Password"
@@ -151,6 +163,7 @@ function App() {
             setLoginForm({ ...loginForm, password: e.target.value })
           }
         />
+
         <button style={styles.primaryBtn} onClick={handleLogin}>
           Login
         </button>
@@ -193,7 +206,10 @@ function App() {
               <tr
                 key={p.id}
                 onClick={() => setActiveRow(activeRow === p.id ? null : p.id)}
-                style={{ cursor: "pointer", background: activeRow === p.id ? "#eef6ff" : "white" }}
+                style={{
+                  cursor: "pointer",
+                  background: activeRow === p.id ? "#eef6ff" : "white",
+                }}
               >
                 <td style={styles.td}>
                   {p.name}
