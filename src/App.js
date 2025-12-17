@@ -182,8 +182,8 @@ function App() {
             onChange={(e) =>
               setLoginForm({ ...loginForm, username: e.target.value })
             }
-            onFocus={(e) => e.target.style = {...styles.loginInput, ...styles.loginInputFocus}}
-            onBlur={(e) => e.target.style = styles.loginInput}
+            onFocus={(e) => e.target.style.borderColor = "#667eea"}
+            onBlur={(e) => e.target.style.borderColor = "#e1e5e9"}
           />
 
           <input
@@ -193,8 +193,8 @@ function App() {
             onChange={(e) =>
               setLoginForm({ ...loginForm, password: e.target.value })
             }
-            onFocus={(e) => e.target.style = {...styles.loginInput, ...styles.loginInputFocus}}
-            onBlur={(e) => e.target.style = styles.loginInput}
+            onFocus={(e) => e.target.style.borderColor = "#667eea"}
+            onBlur={(e) => e.target.style.borderColor = "#e1e5e9"}
           />
 
           <button 
@@ -491,7 +491,8 @@ const styles = {
     border: "2px solid #e1e5e9",
     fontSize: "15px",
     transition: "all 0.3s ease",
-    boxSizing: "border-box"
+    boxSizing: "border-box",
+    outline: "none"
   },
   
   loginInputFocus: {
@@ -584,7 +585,8 @@ const styles = {
     fontSize: "14px",
     flex: "1",
     minWidth: "180px",
-    transition: "all 0.3s ease"
+    transition: "all 0.3s ease",
+    outline: "none"
   },
   
   inputSmall: {
@@ -593,7 +595,8 @@ const styles = {
     border: "2px solid #e1e5e9",
     fontSize: "14px",
     width: "120px",
-    transition: "all 0.3s ease"
+    transition: "all 0.3s ease",
+    outline: "none"
   },
   
   primaryBtn: {
@@ -624,7 +627,8 @@ const styles = {
     border: "2px solid #e1e5e9",
     fontSize: "15px",
     background: "#f8f9fa",
-    transition: "all 0.3s ease"
+    transition: "all 0.3s ease",
+    outline: "none"
   },
   
   searchIcon: {
