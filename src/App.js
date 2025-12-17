@@ -130,7 +130,7 @@ function App() {
         authHeaders()
       )
       .then(() => {
-        showToast("Product added");
+        showToast("Product added successfully");
         document.getElementById("name").value = "";
         document.getElementById("quantity").value = "";
         document.getElementById("price").value = "";
@@ -150,30 +150,30 @@ function App() {
         authHeaders()
       )
       .then(() => {
-        showToast("Product updated");
+        showToast("Product updated successfully");
         setIsModalOpen(false);
         fetchProducts();
       });
   };
 
   const deleteProduct = (id) => {
-    if (!window.confirm("Delete product?")) return;
+    if (!window.confirm("Are you sure you want to delete this product?")) return;
     axios
       .post(`${API}/products/delete/${id}/`, {}, authHeaders())
       .then(() => {
-        showToast("Product deleted");
+        showToast("Product deleted successfully");
         fetchProducts();
       });
   };
 
-  /* ================= LOGIN UI (CLEANED) ================= */
+  /* ================= MODERN LOGIN UI ================= */
   if (!isLoggedIn) {
     return (
       <div style={styles.loginPage}>
         <div style={styles.loginCard}>
-          <h2 style={{ marginBottom: 5 }}>Welcome Back</h2>
-          <p style={{ color: "#666", marginBottom: 20 }}>
-            Login to manage your inventory
+          <h2 style={styles.loginTitle}>Welcome Back</h2>
+          <p style={styles.loginSubtitle}>
+            Sign in to manage your inventory dashboard
           </p>
 
           <input
@@ -182,6 +182,8 @@ function App() {
             onChange={(e) =>
               setLoginForm({ ...loginForm, username: e.target.value })
             }
+            onFocus={(e) => e.target.style = {...styles.loginInput, ...styles.loginInputFocus}}
+            onBlur={(e) => e.target.style = styles.loginInput}
           />
 
           <input
@@ -191,10 +193,17 @@ function App() {
             onChange={(e) =>
               setLoginForm({ ...loginForm, password: e.target.value })
             }
+            onFocus={(e) => e.target.style = {...styles.loginInput, ...styles.loginInputFocus}}
+            onBlur={(e) => e.target.style = styles.loginInput}
           />
 
-          <button style={styles.loginBtn} onClick={handleLogin}>
-            Login
+          <button 
+            style={styles.loginBtn}
+            onClick={handleLogin}
+            onMouseOver={(e) => e.target.style.opacity = "0.9"}
+            onMouseOut={(e) => e.target.style.opacity = "1"}
+          >
+            Sign In
           </button>
         </div>
 
@@ -204,7 +213,7 @@ function App() {
               key={t.id}
               style={{
                 ...styles.toast,
-                background: t.type === "error" ? "#d9534f" : "#1d9a6c",
+                ...(t.type === "error" ? styles.toastError : styles.toastSuccess)
               }}
             >
               {t.message}
@@ -215,25 +224,55 @@ function App() {
     );
   }
 
-  /* ================= MAIN UI ================= */
+  /* ================= MODERN MAIN UI ================= */
   return (
     <div style={styles.container}>
-      <h1 style={styles.title}>Inventory Management</h1>
-      <button onClick={logout} style={styles.ghostBtn}>Logout</button>
-
-      <div style={styles.addRow}>
-        <input id="name" placeholder="Name" style={styles.input} />
-        <input id="quantity" type="number" placeholder="Qty" style={styles.inputSmall} />
-        <input id="price" type="number" placeholder="Price" style={styles.inputSmall} />
-        <button onClick={addProduct} style={styles.primaryBtn}>Add</button>
+      <div style={styles.header}>
+        <h1 style={styles.title}>📦 Inventory Dashboard</h1>
+        <button 
+          onClick={logout} 
+          style={styles.logoutBtn}
+          onMouseOver={(e) => {
+            e.target.style.background = "#667eea";
+            e.target.style.color = "#fff";
+          }}
+          onMouseOut={(e) => {
+            e.target.style.background = "transparent";
+            e.target.style.color = "#667eea";
+          }}
+        >
+          Logout
+        </button>
       </div>
 
-      <input
-        placeholder="Search..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        style={styles.search}
-      />
+      <div style={styles.addSection}>
+        <div style={styles.addTitle}>
+          <span>➕</span> Add New Product
+        </div>
+        <div style={styles.addRow}>
+          <input id="name" placeholder="Product Name" style={styles.input} />
+          <input id="quantity" type="number" placeholder="Quantity" style={styles.inputSmall} />
+          <input id="price" type="number" placeholder="Price ($)" style={styles.inputSmall} />
+          <button 
+            onClick={addProduct} 
+            style={styles.primaryBtn}
+            onMouseOver={(e) => e.target.style.transform = "translateY(-2px)"}
+            onMouseOut={(e) => e.target.style.transform = "translateY(0)"}
+          >
+            <span>+</span> Add Product
+          </button>
+        </div>
+      </div>
+
+      <div style={styles.searchContainer}>
+        <div style={styles.searchIcon}>🔍</div>
+        <input
+          placeholder="Search products..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={styles.search}
+        />
+      </div>
 
       <table style={styles.table}>
         <thead>
@@ -242,14 +281,14 @@ function App() {
               setSortField("name");
               setSortOrder(sortField === "name" && sortOrder === "asc" ? "desc" : "asc");
             }}>
-              Name {sortField === "name" ? (sortOrder === "asc" ? "▲" : "▼") : ""}
+              Product Name {sortField === "name" ? (sortOrder === "asc" ? "▲" : "▼") : ""}
             </th>
 
             <th style={styles.th} onClick={() => {
               setSortField("quantity");
               setSortOrder(sortField === "quantity" && sortOrder === "asc" ? "desc" : "asc");
             }}>
-              Qty {sortField === "quantity" ? (sortOrder === "asc" ? "▲" : "▼") : ""}
+              Quantity {sortField === "quantity" ? (sortOrder === "asc" ? "▲" : "▼") : ""}
             </th>
 
             <th style={styles.th} onClick={() => {
@@ -270,12 +309,18 @@ function App() {
             <tr
               key={p.id}
               onClick={() => setActiveRow(activeRow === p.id ? null : p.id)}
-              style={{ cursor: "pointer", background: activeRow === p.id ? "#eef6ff" : "white" }}
+              style={{ 
+                cursor: "pointer", 
+                background: activeRow === p.id ? "#f0f7ff" : "white",
+                ...styles.trHover
+              }}
+              onMouseOver={(e) => e.currentTarget.style.background = "#f8f9fa"}
+              onMouseOut={(e) => e.currentTarget.style.background = activeRow === p.id ? "#f0f7ff" : "white"}
             >
               <td style={styles.td}>
-                {p.name}
+                <div style={{ fontWeight: "500" }}>{p.name}</div>
                 {activeRow === p.id && (
-                  <div>
+                  <div style={styles.actionButtons}>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -284,8 +329,10 @@ function App() {
                         setIsModalOpen(true);
                       }}
                       style={styles.editBtn}
+                      onMouseOver={(e) => e.target.style.transform = "translateY(-2px)"}
+                      onMouseOut={(e) => e.target.style.transform = "translateY(0)"}
                     >
-                      Edit
+                      ✏️ Edit
                     </button>
                     <button
                       onClick={(e) => {
@@ -293,14 +340,34 @@ function App() {
                         deleteProduct(p.id);
                       }}
                       style={styles.deleteBtn}
+                      onMouseOver={(e) => e.target.style.transform = "translateY(-2px)"}
+                      onMouseOut={(e) => e.target.style.transform = "translateY(0)"}
                     >
-                      Delete
+                      🗑️ Delete
                     </button>
                   </div>
                 )}
               </td>
-              <td style={styles.td}>{p.quantity}</td>
-              <td style={styles.td}>{p.price}</td>
+              <td style={styles.td}>
+                <span style={{
+                  padding: "4px 12px",
+                  borderRadius: "20px",
+                  background: p.quantity < 10 ? "#fee2e2" : "#dcfce7",
+                  color: p.quantity < 10 ? "#991b1b" : "#166534",
+                  fontSize: "13px",
+                  fontWeight: "500"
+                }}>
+                  {p.quantity} units
+                </span>
+              </td>
+              <td style={styles.td}>
+                <span style={{
+                  fontWeight: "600",
+                  color: "#1a1a1a"
+                }}>
+                  ${parseFloat(p.price).toFixed(2)}
+                </span>
+              </td>
             </tr>
           ))}
         </tbody>
@@ -309,47 +376,414 @@ function App() {
       {isModalOpen && (
         <div style={styles.modalOverlay}>
           <div style={styles.modal}>
-            <input value={editForm.name} onChange={(e)=>setEditForm({...editForm,name:e.target.value})} style={styles.input}/>
-            <input value={editForm.quantity} onChange={(e)=>setEditForm({...editForm,quantity:e.target.value})} style={styles.inputSmall}/>
-            <input value={editForm.price} onChange={(e)=>setEditForm({...editForm,price:e.target.value})} style={styles.inputSmall}/>
-            <div style={{ marginTop: 10 }}>
-              <button onClick={submitEdit} style={styles.primaryBtn}>Save</button>
-              <button onClick={() => setIsModalOpen(false)} style={styles.ghostBtn}>Cancel</button>
+            <h3 style={styles.modalTitle}>Edit Product</h3>
+            <input 
+              value={editForm.name} 
+              onChange={(e)=>setEditForm({...editForm,name:e.target.value})} 
+              placeholder="Product Name"
+              style={{...styles.input, marginBottom: "16px"}}
+            />
+            <div style={{ display: "flex", gap: "12px", marginBottom: "24px" }}>
+              <input 
+                value={editForm.quantity} 
+                onChange={(e)=>setEditForm({...editForm,quantity:e.target.value})} 
+                placeholder="Quantity"
+                style={styles.inputSmall}
+              />
+              <input 
+                value={editForm.price} 
+                onChange={(e)=>setEditForm({...editForm,price:e.target.value})} 
+                placeholder="Price"
+                style={styles.inputSmall}
+              />
+            </div>
+            <div style={styles.modalActions}>
+              <button 
+                onClick={submitEdit} 
+                style={styles.primaryBtn}
+                onMouseOver={(e) => e.target.style.transform = "translateY(-2px)"}
+                onMouseOut={(e) => e.target.style.transform = "translateY(0)"}
+              >
+                💾 Save Changes
+              </button>
+              <button 
+                onClick={() => setIsModalOpen(false)} 
+                style={styles.logoutBtn}
+                onMouseOver={(e) => {
+                  e.target.style.background = "#667eea";
+                  e.target.style.color = "#fff";
+                }}
+                onMouseOut={(e) => {
+                  e.target.style.background = "transparent";
+                  e.target.style.color = "#667eea";
+                }}
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>
       )}
+
+      <div style={styles.toastContainer}>
+        {toasts.map((t) => (
+          <div
+            key={t.id}
+            style={{
+              ...styles.toast,
+              ...(t.type === "error" ? styles.toastError : styles.toastSuccess)
+            }}
+          >
+            {t.type === "success" ? "✅" : "❌"} {t.message}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
-/* ================= STYLES ================= */
+/* ================= MODERN STYLES ================= */
 const styles = {
-  /* login */
-  loginPage:{height:"100vh",display:"flex",justifyContent:"center",alignItems:"center",background:"#f4f6f8"},
-  loginCard:{width:360,padding:30,background:"#fff",borderRadius:12,boxShadow:"0 10px 30px rgba(0,0,0,.1)",textAlign:"center"},
-  loginInput:{width:"100%",padding:12,marginBottom:15,borderRadius:8,border:"1px solid #ddd"},
-  loginBtn:{width:"100%",padding:12,background:"#007bff",color:"#fff",border:"none",borderRadius:8,fontSize:16},
-
-  /* app */
-  container:{maxWidth:980,margin:"40px auto",padding:20,background:"#fff",borderRadius:10},
-  title:{textAlign:"center"},
-  addRow:{display:"flex",gap:10,justifyContent:"center"},
-  input:{padding:10,borderRadius:6,border:"1px solid #ddd"},
-  inputSmall:{padding:10,borderRadius:6,border:"1px solid #ddd",width:120},
-  primaryBtn:{background:"#007bff",color:"#fff",padding:"8px 14px",borderRadius:6,border:"none"},
-  ghostBtn:{background:"#f5f5f5",padding:"6px 10px",border:"1px solid #ddd",marginLeft:6},
-  editBtn:{background:"#28a745",color:"#fff",marginRight:6},
-  deleteBtn:{background:"#dc3545",color:"#fff"},
-  search:{padding:10,width:"60%",margin:"10px auto",display:"block"},
-  table:{width:"100%",borderCollapse:"collapse"},
-  theadRow:{background:"#007bff",color:"#fff"},
-  th:{padding:12,cursor:"pointer"},
-  td:{padding:12,border:"1px solid #eee"},
-  modalOverlay:{position:"fixed",inset:0,background:"rgba(0,0,0,.4)",display:"flex",justifyContent:"center",alignItems:"center"},
-  modal:{background:"#fff",padding:20,borderRadius:8},
-  toastContainer:{position:"fixed",top:20,right:20},
-  toast:{color:"#fff",padding:10,borderRadius:6,marginBottom:6}
+  /* ========== LOGIN PAGE ========== */
+  loginPage: {
+    minHeight: "100vh",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+  },
+  
+  loginCard: {
+    width: "100%",
+    maxWidth: "420px",
+    padding: "40px 32px",
+    background: "rgba(255, 255, 255, 0.95)",
+    backdropFilter: "blur(10px)",
+    borderRadius: "20px",
+    boxShadow: "0 20px 60px rgba(0, 0, 0, 0.15)",
+    textAlign: "center",
+    border: "1px solid rgba(255, 255, 255, 0.2)"
+  },
+  
+  loginTitle: {
+    marginBottom: "8px",
+    fontSize: "28px",
+    fontWeight: "700",
+    color: "#1a1a1a",
+    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+    WebkitBackgroundClip: "text",
+    WebkitTextFillColor: "transparent"
+  },
+  
+  loginSubtitle: {
+    color: "#666",
+    marginBottom: "32px",
+    fontSize: "14px",
+    fontWeight: "400"
+  },
+  
+  loginInput: {
+    width: "100%",
+    padding: "16px 20px",
+    marginBottom: "20px",
+    borderRadius: "12px",
+    border: "2px solid #e1e5e9",
+    fontSize: "15px",
+    transition: "all 0.3s ease",
+    boxSizing: "border-box"
+  },
+  
+  loginInputFocus: {
+    borderColor: "#667eea",
+    boxShadow: "0 0 0 3px rgba(102, 126, 234, 0.1)"
+  },
+  
+  loginBtn: {
+    width: "100%",
+    padding: "16px",
+    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+    color: "#fff",
+    border: "none",
+    borderRadius: "12px",
+    fontSize: "16px",
+    fontWeight: "600",
+    cursor: "pointer",
+    transition: "all 0.3s ease",
+    marginTop: "10px"
+  },
+  
+  /* ========== MAIN APP ========== */
+  container: {
+    maxWidth: "1200px",
+    margin: "40px auto",
+    padding: "32px",
+    background: "#fff",
+    borderRadius: "20px",
+    boxShadow: "0 10px 40px rgba(0, 0, 0, 0.08)",
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+  },
+  
+  header: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "32px",
+    paddingBottom: "20px",
+    borderBottom: "2px solid #f0f2f5"
+  },
+  
+  title: {
+    fontSize: "28px",
+    fontWeight: "700",
+    color: "#1a1a1a",
+    margin: "0"
+  },
+  
+  logoutBtn: {
+    background: "transparent",
+    color: "#667eea",
+    padding: "10px 20px",
+    borderRadius: "10px",
+    border: "2px solid #667eea",
+    fontSize: "14px",
+    fontWeight: "600",
+    cursor: "pointer",
+    transition: "all 0.3s ease"
+  },
+  
+  addSection: {
+    background: "#f8f9fa",
+    padding: "24px",
+    borderRadius: "16px",
+    marginBottom: "32px",
+    border: "1px solid #e1e5e9"
+  },
+  
+  addTitle: {
+    fontSize: "16px",
+    fontWeight: "600",
+    color: "#1a1a1a",
+    marginBottom: "16px",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px"
+  },
+  
+  addRow: {
+    display: "flex",
+    gap: "16px",
+    alignItems: "center",
+    flexWrap: "wrap"
+  },
+  
+  input: {
+    padding: "14px 16px",
+    borderRadius: "10px",
+    border: "2px solid #e1e5e9",
+    fontSize: "14px",
+    flex: "1",
+    minWidth: "180px",
+    transition: "all 0.3s ease"
+  },
+  
+  inputSmall: {
+    padding: "14px 16px",
+    borderRadius: "10px",
+    border: "2px solid #e1e5e9",
+    fontSize: "14px",
+    width: "120px",
+    transition: "all 0.3s ease"
+  },
+  
+  primaryBtn: {
+    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+    color: "#fff",
+    padding: "14px 28px",
+    borderRadius: "10px",
+    border: "none",
+    fontSize: "14px",
+    fontWeight: "600",
+    cursor: "pointer",
+    transition: "all 0.3s ease",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px"
+  },
+  
+  /* ========== SEARCH ========== */
+  searchContainer: {
+    marginBottom: "32px",
+    position: "relative"
+  },
+  
+  search: {
+    padding: "16px 20px 16px 48px",
+    width: "100%",
+    borderRadius: "12px",
+    border: "2px solid #e1e5e9",
+    fontSize: "15px",
+    background: "#f8f9fa",
+    transition: "all 0.3s ease"
+  },
+  
+  searchIcon: {
+    position: "absolute",
+    left: "16px",
+    top: "50%",
+    transform: "translateY(-50%)",
+    color: "#666"
+  },
+  
+  /* ========== TABLE ========== */
+  table: {
+    width: "100%",
+    borderCollapse: "separate",
+    borderSpacing: "0",
+    borderRadius: "12px",
+    overflow: "hidden",
+    boxShadow: "0 4px 20px rgba(0, 0, 0, 0.05)"
+  },
+  
+  theadRow: {
+    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+  },
+  
+  th: {
+    padding: "20px 16px",
+    color: "#fff",
+    fontSize: "14px",
+    fontWeight: "600",
+    textAlign: "left",
+    cursor: "pointer",
+    userSelect: "none",
+    transition: "all 0.3s ease",
+    borderRight: "1px solid rgba(255, 255, 255, 0.1)"
+  },
+  
+  td: {
+    padding: "20px 16px",
+    borderBottom: "1px solid #f0f2f5",
+    fontSize: "14px",
+    color: "#333",
+    transition: "all 0.3s ease"
+  },
+  
+  trHover: {
+    transition: "all 0.3s ease"
+  },
+  
+  actionButtons: {
+    display: "flex",
+    gap: "8px",
+    marginTop: "8px"
+  },
+  
+  editBtn: {
+    background: "#10b981",
+    color: "#fff",
+    padding: "8px 16px",
+    borderRadius: "8px",
+    border: "none",
+    fontSize: "13px",
+    fontWeight: "500",
+    cursor: "pointer",
+    transition: "all 0.3s ease"
+  },
+  
+  deleteBtn: {
+    background: "#ef4444",
+    color: "#fff",
+    padding: "8px 16px",
+    borderRadius: "8px",
+    border: "none",
+    fontSize: "13px",
+    fontWeight: "500",
+    cursor: "pointer",
+    transition: "all 0.3s ease"
+  },
+  
+  /* ========== MODAL ========== */
+  modalOverlay: {
+    position: "fixed",
+    inset: "0",
+    background: "rgba(0, 0, 0, 0.5)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    backdropFilter: "blur(5px)",
+    zIndex: "1000"
+  },
+  
+  modal: {
+    background: "#fff",
+    padding: "32px",
+    borderRadius: "20px",
+    boxShadow: "0 25px 50px rgba(0, 0, 0, 0.15)",
+    maxWidth: "500px",
+    width: "90%",
+    border: "1px solid rgba(255, 255, 255, 0.2)"
+  },
+  
+  modalTitle: {
+    fontSize: "20px",
+    fontWeight: "600",
+    marginBottom: "24px",
+    color: "#1a1a1a"
+  },
+  
+  modalActions: {
+    display: "flex",
+    gap: "12px",
+    marginTop: "24px",
+    justifyContent: "flex-end"
+  },
+  
+  /* ========== TOAST ========== */
+  toastContainer: {
+    position: "fixed",
+    top: "24px",
+    right: "24px",
+    zIndex: "9999"
+  },
+  
+  toast: {
+    color: "#fff",
+    padding: "16px 20px",
+    borderRadius: "12px",
+    marginBottom: "12px",
+    fontSize: "14px",
+    fontWeight: "500",
+    boxShadow: "0 10px 25px rgba(0, 0, 0, 0.1)",
+    minWidth: "280px",
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    animation: "slideIn 0.3s ease"
+  },
+  
+  toastSuccess: {
+    background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+    borderLeft: "4px solid #047857"
+  },
+  
+  toastError: {
+    background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
+    borderLeft: "4px solid #b91c1c"
+  }
 };
+
+// Add CSS animation
+if (typeof window !== 'undefined') {
+  const styleSheet = document.styleSheets[0];
+  if (styleSheet) {
+    styleSheet.insertRule(`
+      @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+      }
+    `, styleSheet.cssRules.length);
+  }
+}
 
 export default App;
