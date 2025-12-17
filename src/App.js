@@ -52,7 +52,10 @@ function App() {
         showToast("Login successful");
         fetchProducts();
       })
-      .catch(() => showToast("Invalid credentials", "error"));
+      .catch((err) => {
+        console.error("Login error:", err.response?.data);
+        showToast("Invalid credentials", "error");
+      });
   };
 
   const logout = () => {
@@ -115,8 +118,10 @@ function App() {
     const quantity = document.getElementById("quantity").value;
     const price = document.getElementById("price").value;
 
-    if (!name || isNaN(quantity) || isNaN(price))
-      return showToast("Invalid input", "error");
+    if (!name || isNaN(quantity) || isNaN(price)) {
+      showToast("Invalid input", "error");
+      return;
+    }
 
     axios
       .post(
