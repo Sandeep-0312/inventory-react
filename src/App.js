@@ -2,8 +2,9 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 
 // Configure axios for your Django backend
-// Change this line at the top of your App.js:
-const API = process.env.REACT_APP_API_URL || "https://inventory-backend-production-272a.up.railway.app";
+const API = "https://inventory-backend-production-272a.up.railway.app";
+console.log("API URL:", API);
+
 const axiosInstance = axios.create({
   baseURL: API,
 });
@@ -91,13 +92,20 @@ function App() {
   const handleLogin = async (username, password) => {
     try {
       setLoading(true);
-      const response = await axiosInstance.post("/api/auth/login/", {
+      
+      // Use correct JWT endpoint
+      const response = await axiosInstance.post("/api/token/", {
         username,
         password,
       });
 
-      const { access, user: userData } = response.data;
+      const { access, refresh } = response.data;
       localStorage.setItem("token", access);
+      localStorage.setItem("refresh_token", refresh);
+      
+      // Fetch user data after login
+      const userResponse = await axiosInstance.get("/api/auth/me/");
+      const userData = userResponse.data;
       setUser(userData);
       
       showToast(`Welcome ${userData.username}! (${userData.role})`);
@@ -111,7 +119,10 @@ function App() {
       
       return { success: true };
     } catch (error) {
-      const message = error.response?.data?.error || "Login failed";
+      console.error("Login error:", error);
+      const message = error.response?.data?.detail || 
+                      error.response?.data?.error || 
+                      "Login failed. Check credentials.";
       showToast(message, "error");
       return { success: false };
     } finally {
@@ -121,6 +132,7 @@ function App() {
 
   const handleLogout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("refresh_token");
     setUser(null);
     setProducts([]);
     setPurchases([]);
@@ -325,6 +337,7 @@ function App() {
         setShowProductModal={setShowProductModal}
         editingProduct={editingProduct}
         toasts={toasts}
+        showToast={showToast}
       />
     );
   }
@@ -429,6 +442,7 @@ function AdminDashboard({
   setShowProductModal,
   editingProduct,
   toasts,
+  showToast,
 }) {
   const [stats, setStats] = useState({
     totalProducts: 0,
@@ -1230,6 +1244,7 @@ function CustomerDashboard({
     </div>
   );
 }
+
 /* ================= TOAST CONTAINER ================= */
 function ToastContainer({ toasts }) {
   return (
