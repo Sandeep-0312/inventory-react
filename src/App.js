@@ -93,28 +93,30 @@ function App() {
     try {
       setLoading(true);
       
-      // Use correct JWT endpoint
-      const response = await axiosInstance.post("/api/token/", {
+      // ✅ FIXED: Use correct endpoint - /api/auth/login/
+      const response = await axiosInstance.post("/api/auth/login/", {
         username,
         password,
       });
 
-      const { access, refresh } = response.data;
+      console.log("Login response:", response.data); // Debug
+      
+      const { access, refresh, user: userData } = response.data;
+      
+      // Store tokens
       localStorage.setItem("token", access);
       localStorage.setItem("refresh_token", refresh);
       
-      // Fetch user data after login
-      const userResponse = await axiosInstance.get("/api/auth/me/");
-      const userData = userResponse.data;
+      // ✅ FIXED: Set user data from login response (no need for extra API call)
       setUser(userData);
       
       showToast(`Welcome ${userData.username}! (${userData.role})`);
       
+      // Fetch products
+      await fetchProducts();
+      
       if (userData.role === "admin") {
-        await fetchProducts();
         await fetchPurchases();
-      } else {
-        await fetchProducts();
       }
       
       return { success: true };
@@ -122,6 +124,7 @@ function App() {
       console.error("Login error:", error);
       const message = error.response?.data?.detail || 
                       error.response?.data?.error || 
+                      error.response?.data?.non_field_errors?.[0] ||
                       "Login failed. Check credentials.";
       showToast(message, "error");
       return { success: false };
@@ -142,7 +145,8 @@ function App() {
   /* ================= PRODUCT FUNCTIONS ================= */
   const fetchProducts = async () => {
     try {
-      const response = await axiosInstance.get("/api/products/");
+      // ✅ FIXED: Remove extra /api/ prefix (should be /products/)
+      const response = await axiosInstance.get("/products/");
       setProducts(response.data.products || []);
     } catch (error) {
       console.error("Failed to fetch products:", error);
@@ -159,7 +163,8 @@ function App() {
     }
 
     try {
-      await axiosInstance.post("/api/products/add/", {
+      // ✅ FIXED: Remove extra /api/ prefix (should be /products/add/)
+      await axiosInstance.post("/products/add/", {
         name: productForm.name,
         quantity: parseInt(productForm.quantity),
         price: parseFloat(productForm.price),
@@ -177,7 +182,8 @@ function App() {
     if (!editingProduct) return;
 
     try {
-      await axiosInstance.post(`/api/products/edit/${editingProduct.id}/`, {
+      // ✅ FIXED: Remove extra /api/ prefix (should be /products/edit/)
+      await axiosInstance.post(`/products/edit/${editingProduct.id}/`, {
         name: productForm.name,
         quantity: parseInt(productForm.quantity),
         price: parseFloat(productForm.price),
@@ -196,7 +202,8 @@ function App() {
     if (!window.confirm("Are you sure you want to delete this product?")) return;
 
     try {
-      await axiosInstance.post(`/api/products/delete/${id}/`, {});
+      // ✅ FIXED: Remove extra /api/ prefix (should be /products/delete/)
+      await axiosInstance.post(`/products/delete/${id}/`, {});
       showToast("Product deleted successfully");
       fetchProducts();
     } catch (error) {
@@ -207,7 +214,8 @@ function App() {
   /* ================= PURCHASE FUNCTIONS ================= */
   const fetchPurchases = async () => {
     try {
-      const response = await axiosInstance.get("/api/purchases/");
+      // ✅ FIXED: Remove extra /api/ prefix (should be /purchases/)
+      const response = await axiosInstance.get("/purchases/");
       setPurchases(response.data.purchases || []);
     } catch (error) {
       console.error("Failed to fetch purchases:", error);
@@ -234,13 +242,15 @@ function App() {
     try {
       // LOG THE REQUEST
       console.log("=== PURCHASE REQUEST DEBUG ===");
-      console.log("Endpoint:", "/api/purchases/create/");
+      // ✅ FIXED: Remove extra /api/ prefix (should be /purchases/create/)
+      console.log("Endpoint:", "/purchases/create/");
       console.log("Payload:", JSON.stringify(purchaseForm, null, 2));
       console.log("Product ID type:", typeof purchaseForm.product_id);
       console.log("Quantity type:", typeof purchaseForm.quantity);
       console.log("=======================");
       
-      const response = await axiosInstance.post("/api/purchases/create/", purchaseForm);
+      // ✅ FIXED: Remove extra /api/ prefix
+      const response = await axiosInstance.post("/purchases/create/", purchaseForm);
       
       console.log("=== PURCHASE RESPONSE ===");
       console.log("Response:", response.data);
@@ -279,7 +289,8 @@ function App() {
     try {
       console.log(`Updating purchase ${purchaseId} to status: ${newStatus}`);
       
-      const response = await axiosInstance.put(`/api/purchases/update-status/${purchaseId}/`, {
+      // ✅ FIXED: Remove extra /api/ prefix (should be /purchases/update-status/)
+      const response = await axiosInstance.put(`/purchases/update-status/${purchaseId}/`, {
         status: newStatus
       });
       
