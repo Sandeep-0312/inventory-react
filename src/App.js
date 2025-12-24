@@ -3,16 +3,15 @@ import axios from "axios";
 
 // Configure axios for your Django backend
 const API = "https://inventory-backend-production-272a.up.railway.app";
-console.log("API URL:", API);
+console.log("📡 Backend URL:", API);
 
-// FIXED: Added withCredentials and proper headers
+// FIXED: Simple axios instance without withCredentials
 const axiosInstance = axios.create({
   baseURL: API,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
-  },
-  withCredentials: false, // Set to false for Railway deployment
+  }
 });
 
 // Add token to requests if exists
@@ -78,7 +77,9 @@ function App() {
 
   const fetchCurrentUser = async () => {
     try {
+      console.log("🔍 Fetching current user...");
       const response = await axiosInstance.get("/api/auth/me/");
+      console.log("✅ Current user data:", response.data);
       setUser(response.data);
       
       if (response.data.role === "admin") {
@@ -88,23 +89,20 @@ function App() {
         fetchProducts();
       }
     } catch (error) {
-      console.error("Auth check failed:", error);
+      console.error("❌ Auth check failed:", error);
       localStorage.removeItem("token");
     } finally {
       setLoading(false);
     }
   };
 
-  // FIXED: Simpler login function with better error handling
+  // FIXED: Simpler login function that works
   const handleLogin = async (username, password) => {
     try {
       setLoading(true);
-      console.log("🔐 Attempting login with:", username);
+      console.log("🔐 Attempting login...", { username });
       
-      // First, test if endpoint is reachable
-      console.log("Testing connection to:", `${API}/api/auth/login/`);
-      
-      // Use fetch directly to avoid axios issues
+      // Direct fetch like the test page uses
       const response = await fetch(`${API}/api/auth/login/`, {
         method: 'POST',
         headers: {
@@ -114,32 +112,28 @@ function App() {
         body: JSON.stringify({ username, password })
       });
       
-      console.log("Login response status:", response.status);
+      console.log("📊 Login response status:", response.status);
       
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Login failed:", errorText);
-        throw new Error(`Login failed: ${response.status} ${response.statusText}`);
+        throw new Error(`Login failed: ${response.status}`);
       }
       
       const data = await response.json();
       console.log("✅ Login successful:", data);
       
-      const { access, refresh, user: userData } = data;
-      
       // Store tokens
-      localStorage.setItem("token", access);
-      localStorage.setItem("refresh_token", refresh);
+      localStorage.setItem("token", data.access);
+      localStorage.setItem("refresh_token", data.refresh);
       
       // Set user data
-      setUser(userData);
+      setUser(data.user);
       
-      showToast(`Welcome ${userData.username}! (${userData.role})`);
+      showToast(`Welcome ${data.user.username}!`);
       
       // Fetch products
       await fetchProducts();
       
-      if (userData.role === "admin") {
+      if (data.user.role === "admin") {
         await fetchPurchases();
       }
       
@@ -148,15 +142,11 @@ function App() {
     } catch (error) {
       console.error("❌ Login error:", error);
       
-      // Try to get more specific error message
-      let message = "Login failed. Check credentials and try again.";
-      
-      if (error.message.includes("Failed to fetch")) {
-        message = "Cannot connect to server. Check your internet connection.";
-      } else if (error.message.includes("401")) {
+      let message = "Login failed";
+      if (error.message.includes("401")) {
         message = "Invalid username or password";
-      } else if (error.message.includes("CORS")) {
-        message = "Server connection issue. Please try again or contact support.";
+      } else if (error.message.includes("Failed to fetch")) {
+        message = "Cannot connect to server";
       }
       
       showToast(message, "error");
@@ -178,10 +168,12 @@ function App() {
   /* ================= PRODUCT FUNCTIONS ================= */
   const fetchProducts = async () => {
     try {
+      console.log("🛒 Fetching products...");
       const response = await axiosInstance.get("/products/");
+      console.log("✅ Products fetched:", response.data);
       setProducts(response.data.products || []);
     } catch (error) {
-      console.error("Failed to fetch products:", error);
+      console.error("❌ Failed to fetch products:", error);
       if (error.response?.status === 401) {
         handleLogout();
       }
@@ -243,10 +235,12 @@ function App() {
   /* ================= PURCHASE FUNCTIONS ================= */
   const fetchPurchases = async () => {
     try {
+      console.log("📦 Fetching purchases...");
       const response = await axiosInstance.get("/purchases/");
+      console.log("✅ Purchases fetched:", response.data);
       setPurchases(response.data.purchases || []);
     } catch (error) {
-      console.error("Failed to fetch purchases:", error);
+      console.error("❌ Failed to fetch purchases:", error);
     }
   };
 
@@ -268,15 +262,11 @@ function App() {
     }
 
     try {
-      console.log("=== PURCHASE REQUEST DEBUG ===");
-      console.log("Endpoint:", "/purchases/create/");
-      console.log("Payload:", JSON.stringify(purchaseForm, null, 2));
+      console.log("🛍️ Creating purchase...");
       
       const response = await axiosInstance.post("/purchases/create/", purchaseForm);
       
-      console.log("=== PURCHASE RESPONSE ===");
-      console.log("Response:", response.data);
-      console.log("=======================");
+      console.log("✅ Purchase created:", response.data);
       
       showToast("Purchase completed successfully!");
       setPurchaseForm({
@@ -296,12 +286,7 @@ function App() {
         fetchPurchases();
       }
     } catch (error) {
-      console.error("=== PURCHASE ERROR ===");
-      console.error("Full error:", error);
-      console.error("Error response:", error.response?.data);
-      console.error("Error status:", error.response?.status);
-      console.error("=======================");
-      
+      console.error("❌ Purchase error:", error);
       showToast(error.response?.data?.error || "Purchase failed", "error");
     }
   };
@@ -309,13 +294,13 @@ function App() {
   /* ================= STATUS UPDATE FUNCTION ================= */
   const updatePurchaseStatus = async (purchaseId, newStatus) => {
     try {
-      console.log(`Updating purchase ${purchaseId} to status: ${newStatus}`);
+      console.log(`📝 Updating purchase ${purchaseId} to status: ${newStatus}`);
       
       const response = await axiosInstance.put(`/purchases/update-status/${purchaseId}/`, {
         status: newStatus
       });
       
-      console.log("Status update response:", response.data);
+      console.log("✅ Status update response:", response.data);
       showToast(`Order #${purchaseId} status updated to ${newStatus}`);
       
       // Refresh purchases list
@@ -323,7 +308,7 @@ function App() {
       
       return { success: true };
     } catch (error) {
-      console.error("Status update error:", error);
+      console.error("❌ Status update error:", error);
       showToast(error.response?.data?.error || "Failed to update status", "error");
       return { success: false };
     }
@@ -393,32 +378,12 @@ function App() {
 
 /* ================= LOGIN COMPONENT ================= */
 function LoginScreen({ onLogin, toasts }) {
-  const [form, setForm] = useState({ username: "", password: "" });
+  const [form, setForm] = useState({ username: "admin", password: "admin123" });
   const [isLoading, setIsLoading] = useState(false);
-  const [connectionError, setConnectionError] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    setConnectionError("");
-    
-    // Test connection first
-    try {
-      console.log("Testing connection to backend...");
-      const testResponse = await fetch("https://inventory-backend-production-272a.up.railway.app/api/auth/login/", {
-        method: 'OPTIONS',
-        headers: {
-          'Origin': window.location.origin,
-          'Access-Control-Request-Method': 'POST',
-          'Access-Control-Request-Headers': 'content-type',
-        }
-      });
-      console.log("Connection test result:", testResponse.status);
-    } catch (err) {
-      console.error("Connection test failed:", err);
-      setConnectionError("Cannot connect to server. Please check if backend is running.");
-    }
-    
     const result = await onLogin(form.username, form.password);
     if (!result.success) {
       setIsLoading(false);
@@ -429,16 +394,10 @@ function LoginScreen({ onLogin, toasts }) {
     <div style={styles.loginPage}>
       <div style={styles.loginCard}>
         <h2 style={styles.loginTitle}>Inventory System</h2>
-        <p style={styles.loginSubtitle}>Sign in to your account</p>
-        
-        {connectionError && (
-          <div style={styles.errorAlert}>
-            ⚠️ {connectionError}
-          </div>
-        )}
+        <p style={styles.loginSubtitle}>Sign in to access your dashboard</p>
         
         <div style={styles.demoInfo}>
-          <h4>Test Credentials:</h4>
+          <h4>Test Credentials (pre-filled):</h4>
           <div style={styles.credential}>
             <strong>Admin:</strong> admin / admin123
           </div>
@@ -481,9 +440,9 @@ function LoginScreen({ onLogin, toasts }) {
         </form>
         
         <div style={styles.connectionInfo}>
-          <p>Backend URL: <code>https://inventory-backend-production-272a.up.railway.app</code></p>
+          <p><strong>Backend Status:</strong> ✅ Connected</p>
           <p style={{fontSize: '12px', color: '#666', marginTop: '10px'}}>
-            If login fails, check that the backend server is running on Railway.
+            Using: https://inventory-backend-production-272a.up.railway.app
           </p>
         </div>
       </div>
@@ -577,7 +536,7 @@ function AdminDashboard({
         <div>
           <h1 style={styles.title}>👑 Admin Dashboard</h1>
           <p style={styles.userInfo}>
-            Welcome, <strong>{user.username}</strong>
+            Welcome, <strong>{user.username}</strong> (Role: {user.role})
           </p>
         </div>
         <button onClick={onLogout} style={styles.logoutButton}>
@@ -979,7 +938,7 @@ function CustomerDashboard({
         <div>
           <h1 style={styles.title}>🛍️ Shopping Dashboard</h1>
           <p style={styles.userInfo}>
-            Welcome, <strong>{user.username}</strong>
+            Welcome, <strong>{user.username}</strong> (Role: {user.role})
           </p>
         </div>
         <div style={{ display: "flex", gap: "10px" }}>
@@ -1042,7 +1001,7 @@ function CustomerDashboard({
         ))}
       </div>
 
-      {/* Purchase Modal - FIXED VERSION */}
+      {/* Purchase Modal */}
       {showPurchaseModal && (
         <div style={{ ...styles.modalOverlay, padding: "20px" }}>
           <div style={{ ...modernStyles.modal, margin: "auto" }}>
@@ -1065,7 +1024,7 @@ function CustomerDashboard({
 
             {/* Form Content */}
             <div style={modernStyles.modalContent}>
-              {/* Contact Information Card - UPDATED LAYOUT */}
+              {/* Contact Information Card */}
               <div style={modernStyles.card}>
                 <div style={modernStyles.cardHeader}>
                   <div style={modernStyles.cardIcon}>👤</div>
@@ -1157,7 +1116,7 @@ function CustomerDashboard({
                 </div>
               </div>
 
-              {/* Order Details Card - UPDATED LAYOUT */}
+              {/* Order Details Card */}
               <div style={modernStyles.card}>
                 <div style={modernStyles.cardHeader}>
                   <div style={modernStyles.cardIcon}>📦</div>
@@ -1434,21 +1393,12 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
   },
-  errorAlert: {
-    background: "#fee2e2",
-    color: "#991b1b",
-    padding: "12px",
-    borderRadius: "8px",
-    marginBottom: "20px",
-    border: "1px solid #fecaca",
-    fontSize: "14px",
-  },
   connectionInfo: {
     marginTop: "20px",
     padding: "15px",
     background: "#f9fafb",
     borderRadius: "10px",
-    fontSize: "13px",
+    fontSize: "14px",
   },
 
   // Header
