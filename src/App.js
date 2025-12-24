@@ -5,8 +5,14 @@ import axios from "axios";
 const API = "https://inventory-backend-production-272a.up.railway.app";
 console.log("API URL:", API);
 
+// FIXED: Added withCredentials and proper headers
 const axiosInstance = axios.create({
   baseURL: API,
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  },
+  withCredentials: false, // Set to false for Railway deployment
 });
 
 // Add token to requests if exists
@@ -89,25 +95,43 @@ function App() {
     }
   };
 
+  // FIXED: Simpler login function with better error handling
   const handleLogin = async (username, password) => {
     try {
       setLoading(true);
+      console.log("🔐 Attempting login with:", username);
       
-      // ✅ FIXED: Use correct endpoint - /api/auth/login/
-      const response = await axiosInstance.post("/api/auth/login/", {
-        username,
-        password,
+      // First, test if endpoint is reachable
+      console.log("Testing connection to:", `${API}/api/auth/login/`);
+      
+      // Use fetch directly to avoid axios issues
+      const response = await fetch(`${API}/api/auth/login/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({ username, password })
       });
-
-      console.log("Login response:", response.data); // Debug
       
-      const { access, refresh, user: userData } = response.data;
+      console.log("Login response status:", response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Login failed:", errorText);
+        throw new Error(`Login failed: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log("✅ Login successful:", data);
+      
+      const { access, refresh, user: userData } = data;
       
       // Store tokens
       localStorage.setItem("token", access);
       localStorage.setItem("refresh_token", refresh);
       
-      // ✅ FIXED: Set user data from login response (no need for extra API call)
+      // Set user data
       setUser(userData);
       
       showToast(`Welcome ${userData.username}! (${userData.role})`);
@@ -120,12 +144,21 @@ function App() {
       }
       
       return { success: true };
+      
     } catch (error) {
-      console.error("Login error:", error);
-      const message = error.response?.data?.detail || 
-                      error.response?.data?.error || 
-                      error.response?.data?.non_field_errors?.[0] ||
-                      "Login failed. Check credentials.";
+      console.error("❌ Login error:", error);
+      
+      // Try to get more specific error message
+      let message = "Login failed. Check credentials and try again.";
+      
+      if (error.message.includes("Failed to fetch")) {
+        message = "Cannot connect to server. Check your internet connection.";
+      } else if (error.message.includes("401")) {
+        message = "Invalid username or password";
+      } else if (error.message.includes("CORS")) {
+        message = "Server connection issue. Please try again or contact support.";
+      }
+      
       showToast(message, "error");
       return { success: false };
     } finally {
@@ -145,7 +178,6 @@ function App() {
   /* ================= PRODUCT FUNCTIONS ================= */
   const fetchProducts = async () => {
     try {
-      // ✅ FIXED: Remove extra /api/ prefix (should be /products/)
       const response = await axiosInstance.get("/products/");
       setProducts(response.data.products || []);
     } catch (error) {
@@ -163,7 +195,6 @@ function App() {
     }
 
     try {
-      // ✅ FIXED: Remove extra /api/ prefix (should be /products/add/)
       await axiosInstance.post("/products/add/", {
         name: productForm.name,
         quantity: parseInt(productForm.quantity),
@@ -182,7 +213,6 @@ function App() {
     if (!editingProduct) return;
 
     try {
-      // ✅ FIXED: Remove extra /api/ prefix (should be /products/edit/)
       await axiosInstance.post(`/products/edit/${editingProduct.id}/`, {
         name: productForm.name,
         quantity: parseInt(productForm.quantity),
@@ -202,7 +232,6 @@ function App() {
     if (!window.confirm("Are you sure you want to delete this product?")) return;
 
     try {
-      // ✅ FIXED: Remove extra /api/ prefix (should be /products/delete/)
       await axiosInstance.post(`/products/delete/${id}/`, {});
       showToast("Product deleted successfully");
       fetchProducts();
@@ -214,7 +243,6 @@ function App() {
   /* ================= PURCHASE FUNCTIONS ================= */
   const fetchPurchases = async () => {
     try {
-      // ✅ FIXED: Remove extra /api/ prefix (should be /purchases/)
       const response = await axiosInstance.get("/purchases/");
       setPurchases(response.data.purchases || []);
     } catch (error) {
@@ -240,16 +268,10 @@ function App() {
     }
 
     try {
-      // LOG THE REQUEST
       console.log("=== PURCHASE REQUEST DEBUG ===");
-      // ✅ FIXED: Remove extra /api/ prefix (should be /purchases/create/)
       console.log("Endpoint:", "/purchases/create/");
       console.log("Payload:", JSON.stringify(purchaseForm, null, 2));
-      console.log("Product ID type:", typeof purchaseForm.product_id);
-      console.log("Quantity type:", typeof purchaseForm.quantity);
-      console.log("=======================");
       
-      // ✅ FIXED: Remove extra /api/ prefix
       const response = await axiosInstance.post("/purchases/create/", purchaseForm);
       
       console.log("=== PURCHASE RESPONSE ===");
@@ -289,7 +311,6 @@ function App() {
     try {
       console.log(`Updating purchase ${purchaseId} to status: ${newStatus}`);
       
-      // ✅ FIXED: Remove extra /api/ prefix (should be /purchases/update-status/)
       const response = await axiosInstance.put(`/purchases/update-status/${purchaseId}/`, {
         status: newStatus
       });
@@ -374,10 +395,30 @@ function App() {
 function LoginScreen({ onLogin, toasts }) {
   const [form, setForm] = useState({ username: "", password: "" });
   const [isLoading, setIsLoading] = useState(false);
+  const [connectionError, setConnectionError] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
+    setConnectionError("");
+    
+    // Test connection first
+    try {
+      console.log("Testing connection to backend...");
+      const testResponse = await fetch("https://inventory-backend-production-272a.up.railway.app/api/auth/login/", {
+        method: 'OPTIONS',
+        headers: {
+          'Origin': window.location.origin,
+          'Access-Control-Request-Method': 'POST',
+          'Access-Control-Request-Headers': 'content-type',
+        }
+      });
+      console.log("Connection test result:", testResponse.status);
+    } catch (err) {
+      console.error("Connection test failed:", err);
+      setConnectionError("Cannot connect to server. Please check if backend is running.");
+    }
+    
     const result = await onLogin(form.username, form.password);
     if (!result.success) {
       setIsLoading(false);
@@ -387,8 +428,14 @@ function LoginScreen({ onLogin, toasts }) {
   return (
     <div style={styles.loginPage}>
       <div style={styles.loginCard}>
-        <h2 style={styles.loginTitle}>Welcome Back</h2>
+        <h2 style={styles.loginTitle}>Inventory System</h2>
         <p style={styles.loginSubtitle}>Sign in to your account</p>
+        
+        {connectionError && (
+          <div style={styles.errorAlert}>
+            ⚠️ {connectionError}
+          </div>
+        )}
         
         <div style={styles.demoInfo}>
           <h4>Test Credentials:</h4>
@@ -408,6 +455,7 @@ function LoginScreen({ onLogin, toasts }) {
             onChange={(e) => setForm({ ...form, username: e.target.value })}
             style={styles.loginInput}
             required
+            disabled={isLoading}
           />
           <input
             type="password"
@@ -416,15 +464,28 @@ function LoginScreen({ onLogin, toasts }) {
             onChange={(e) => setForm({ ...form, password: e.target.value })}
             style={styles.loginInput}
             required
+            disabled={isLoading}
           />
           <button 
             type="submit" 
             style={styles.loginButton}
             disabled={isLoading}
           >
-            {isLoading ? "Signing in..." : "Sign In"}
+            {isLoading ? (
+              <>
+                <span style={{marginRight: '8px'}}>🔄</span>
+                Signing in...
+              </>
+            ) : "Sign In"}
           </button>
         </form>
+        
+        <div style={styles.connectionInfo}>
+          <p>Backend URL: <code>https://inventory-backend-production-272a.up.railway.app</code></p>
+          <p style={{fontSize: '12px', color: '#666', marginTop: '10px'}}>
+            If login fails, check that the backend server is running on Railway.
+          </p>
+        </div>
       </div>
 
       <ToastContainer toasts={toasts} />
@@ -1320,7 +1381,7 @@ const styles = {
     borderRadius: "20px",
     boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
     width: "100%",
-    maxWidth: "400px",
+    maxWidth: "450px",
     border: "1px solid #d1d5db",
   },
   loginTitle: {
@@ -1330,10 +1391,12 @@ const styles = {
     background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
     WebkitBackgroundClip: "text",
     WebkitTextFillColor: "transparent",
+    textAlign: "center",
   },
   loginSubtitle: {
     color: "#666",
     marginBottom: "30px",
+    textAlign: "center",
   },
   demoInfo: {
     background: "#f0f7ff",
@@ -1343,7 +1406,7 @@ const styles = {
     border: "1px solid #b3c6ff",
   },
   credential: {
-    padding: "5px 0",
+    padding: "8px 0",
     borderBottom: "1px solid #c7d2fe",
   },
   loginInput: {
@@ -1367,6 +1430,25 @@ const styles = {
     fontWeight: "600",
     cursor: "pointer",
     marginTop: "10px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  errorAlert: {
+    background: "#fee2e2",
+    color: "#991b1b",
+    padding: "12px",
+    borderRadius: "8px",
+    marginBottom: "20px",
+    border: "1px solid #fecaca",
+    fontSize: "14px",
+  },
+  connectionInfo: {
+    marginTop: "20px",
+    padding: "15px",
+    background: "#f9fafb",
+    borderRadius: "10px",
+    fontSize: "13px",
   },
 
   // Header
