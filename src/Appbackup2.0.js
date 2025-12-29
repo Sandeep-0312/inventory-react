@@ -366,7 +366,6 @@ function App() {
         showProductModal={showProductModal}
         setShowProductModal={setShowProductModal}
         editingProduct={editingProduct}
-        showToast={showToast}
         toasts={toasts}
       />
     );
@@ -537,7 +536,6 @@ function AdminDashboard({
   showProductModal,
   setShowProductModal,
   editingProduct,
-  showToast,
   toasts,
 }) {
   const [stats, setStats] = useState({
