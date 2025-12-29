@@ -3,15 +3,13 @@ import axios from "axios";
 
 // Configure axios for your Django backend
 const API = "https://inventory-backend-production-272a.up.railway.app";
-console.log("📡 Backend URL:", API);
-
-// FIXED: Simple axios instance without withCredentials
 const axiosInstance = axios.create({
-  baseURL: API,
+  baseURL: `${API}/api`,  // Now correctly includes /api
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
-  }
+  },
+  withCredentials: true,  // Important for CORS with sessions
 });
 
 // Add token to requests if exists
@@ -22,6 +20,25 @@ axiosInstance.interceptors.request.use((config) => {
   }
   return config;
 });
+
+// CSS animations styles
+const animationStyles = `
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  
+  @keyframes slideIn {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+`;
 
 function App() {
   /* ================= STATE ================= */
@@ -56,6 +73,21 @@ function App() {
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
 
+  /* ================= INJECT CSS ANIMATIONS ================= */
+  useEffect(() => {
+    // Inject CSS animations
+    const styleSheet = document.createElement('style');
+    styleSheet.textContent = animationStyles;
+    document.head.appendChild(styleSheet);
+    
+    return () => {
+      // Cleanup on unmount
+      if (styleSheet.parentNode) {
+        styleSheet.parentNode.removeChild(styleSheet);
+      }
+    };
+  }, []);
+
   /* ================= TOAST SYSTEM ================= */
   const showToast = (message, type = "success", duration = 3000) => {
     const id = Date.now();
@@ -78,7 +110,7 @@ function App() {
   const fetchCurrentUser = async () => {
     try {
       console.log("🔍 Fetching current user...");
-      const response = await axiosInstance.get("/api/auth/me/");
+      const response = await axiosInstance.get("/auth/me/");  // Fixed: removed extra /api
       console.log("✅ Current user data:", response.data);
       setUser(response.data);
       
@@ -96,44 +128,33 @@ function App() {
     }
   };
 
-  // FIXED: Simpler login function that works
+  // FIXED: Login function
   const handleLogin = async (username, password) => {
     try {
       setLoading(true);
       console.log("🔐 Attempting login...", { username });
       
-      // Direct fetch like the test page uses
-      const response = await fetch(`${API}/api/auth/login/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({ username, password })
+      // Use axiosInstance instead of fetch for consistency
+      const response = await axiosInstance.post("/auth/login/", {  // Fixed URL
+        username,
+        password
       });
       
-      console.log("📊 Login response status:", response.status);
-      
-      if (!response.ok) {
-        throw new Error(`Login failed: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      console.log("✅ Login successful:", data);
+      console.log("✅ Login successful:", response.data);
       
       // Store tokens
-      localStorage.setItem("token", data.access);
-      localStorage.setItem("refresh_token", data.refresh);
+      localStorage.setItem("token", response.data.access);
+      localStorage.setItem("refresh_token", response.data.refresh);
       
       // Set user data
-      setUser(data.user);
+      setUser(response.data.user);
       
-      showToast(`Welcome ${data.user.username}!`);
+      showToast(`Welcome ${response.data.user.username}!`);
       
       // Fetch products
       await fetchProducts();
       
-      if (data.user.role === "admin") {
+      if (response.data.user.role === "admin") {
         await fetchPurchases();
       }
       
@@ -143,9 +164,9 @@ function App() {
       console.error("❌ Login error:", error);
       
       let message = "Login failed";
-      if (error.message.includes("401")) {
+      if (error.response?.status === 401) {
         message = "Invalid username or password";
-      } else if (error.message.includes("Failed to fetch")) {
+      } else if (error.message.includes("Network Error")) {
         message = "Cannot connect to server";
       }
       
@@ -187,6 +208,7 @@ function App() {
     }
 
     try {
+      // FIXED: Use /products/add/ to match Django URLs
       await axiosInstance.post("/products/add/", {
         name: productForm.name,
         quantity: parseInt(productForm.quantity),
@@ -201,6 +223,7 @@ function App() {
     }
   };
 
+  // FIXED: Complete updateProduct function
   const updateProduct = async () => {
     if (!editingProduct) return;
 
@@ -296,7 +319,8 @@ function App() {
     try {
       console.log(`📝 Updating purchase ${purchaseId} to status: ${newStatus}`);
       
-      const response = await axiosInstance.put(`/purchases/update-status/${purchaseId}/`, {
+      // FIXED: Changed from PUT to POST (Django usually uses POST for forms)
+      const response = await axiosInstance.post(`/purchases/update-status/${purchaseId}/`, {
         status: newStatus
       });
       
@@ -2190,26 +2214,5 @@ const modernStyles = {
     marginLeft: "auto",
   },
 };
-
-// Add CSS animations
-const styleSheet = document.createElement("style");
-styleSheet.textContent = `
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-  
-  @keyframes slideIn {
-    from {
-      transform: translateX(100%);
-      opacity: 0;
-    }
-    to {
-      transform: translateX(0);
-      opacity: 1;
-    }
-  }
-`;
-document.head.appendChild(styleSheet);
 
 export default App;
