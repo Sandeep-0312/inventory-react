@@ -443,6 +443,18 @@ function LoginScreen({ onLogin, onRegister, toasts }) {
         <p style={styles.loginSubtitle}>
           {isLoginMode ? "Sign in to your account" : "Sign up as a customer"}
         </p>
+        
+        {isLoginMode && (
+          <div style={styles.demoInfo}>
+            <h4>Test Credentials:</h4>
+            <div style={styles.credential}>
+              <strong>Admin:</strong> admin / admin123
+            </div>
+            <div style={styles.credential}>
+              <strong>Customer:</strong> customer / customer123
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           <input
