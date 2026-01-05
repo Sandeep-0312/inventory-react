@@ -78,6 +78,7 @@ function App() {
         fetchPurchases();
       } else {
         fetchProducts();
+        fetchPurchases(); // Fetch purchases for customers too
       }
     } catch (error) {
       console.error("Auth check failed:", error);
@@ -106,6 +107,7 @@ function App() {
         await fetchPurchases();
       } else {
         await fetchProducts();
+        await fetchPurchases(); // Fetch purchases for customers too
       }
       
       return { success: true };
@@ -144,8 +146,9 @@ function App() {
       
       showToast(`Welcome ${userData.username}! Your account has been created.`);
       
-      // Fetch products for the new customer
+      // Fetch products and purchases for the new customer
       await fetchProducts();
+      await fetchPurchases();
       
       return { success: true };
     } catch (error) {
@@ -377,6 +380,7 @@ function App() {
       user={user}
       onLogout={handleLogout}
       products={products}
+      purchases={purchases}
       search={search}
       setSearch={setSearch}
       purchaseForm={purchaseForm}
@@ -979,6 +983,7 @@ function CustomerDashboard({
   user,
   onLogout,
   products,
+  purchases,
   search,
   setSearch,
   purchaseForm,
@@ -988,6 +993,10 @@ function CustomerDashboard({
   onCreatePurchase,
   toasts,
 }) {
+  const [activeTab, setActiveTab] = useState("products");
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [showOrderDetails, setShowOrderDetails] = useState(false);
+
   const filteredProducts = products.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase())
   );
@@ -995,6 +1004,18 @@ function CustomerDashboard({
   const selectedProduct = products.find(
     p => p.id === parseInt(purchaseForm.product_id)
   );
+
+  // Helper function for status colors
+  const getStatusStyle = (status) => {
+    switch(status) {
+      case 'pending': return { background: '#fef3c7', color: '#92400e' };
+      case 'confirmed': return { background: '#dbeafe', color: '#1e40af' };
+      case 'shipped': return { background: '#e0e7ff', color: '#3730a3' };
+      case 'delivered': return { background: '#dcfce7', color: '#166534' };
+      case 'cancelled': return { background: '#fee2e2', color: '#991b1b' };
+      default: return { background: '#f3f4f6', color: '#6b7280' };
+    }
+  };
 
   return (
     <div style={styles.container}>
@@ -1019,18 +1040,42 @@ function CustomerDashboard({
         </div>
       </div>
 
-      {/* Search */}
-      <div style={styles.searchContainer}>
-        <input
-          placeholder="Search products..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={styles.searchInput}
-        />
+      {/* Tabs */}
+      <div style={styles.tabContainer}>
+        <button
+          style={{
+            ...styles.tabButton,
+            ...(activeTab === "products" ? styles.tabButtonActive : {}),
+          }}
+          onClick={() => setActiveTab("products")}
+        >
+          🛍️ Browse Products
+        </button>
+        <button
+          style={{
+            ...styles.tabButton,
+            ...(activeTab === "orders" ? styles.tabButtonActive : {}),
+          }}
+          onClick={() => setActiveTab("orders")}
+        >
+          📦 My Orders ({purchases.length})
+        </button>
       </div>
 
-      {/* Products Grid */}
-      <div style={styles.productsGrid}>
+      {activeTab === "products" ? (
+        <>
+          {/* Search */}
+          <div style={styles.searchContainer}>
+            <input
+              placeholder="Search products..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={styles.searchInput}
+            />
+          </div>
+
+          {/* Products Grid */}
+          <div style={styles.productsGrid}>
         {filteredProducts.map((product) => (
           <div key={product.id} style={styles.productCard}>
             <div style={styles.productHeader}>
@@ -1065,6 +1110,192 @@ function CustomerDashboard({
           </div>
         ))}
       </div>
+        </>
+      ) : (
+        /* Orders View */
+        <div style={styles.tableContainer}>
+          <h3 style={styles.sectionTitle}>My Order History</h3>
+          
+          {purchases.length === 0 ? (
+            <div style={{
+              textAlign: "center",
+              padding: "60px 20px",
+              color: "#6b7280"
+            }}>
+              <div style={{ fontSize: "64px", marginBottom: "20px" }}>📦</div>
+              <h3 style={{ fontSize: "20px", marginBottom: "10px" }}>No orders yet</h3>
+              <p>Start shopping to see your orders here!</p>
+              <button
+                onClick={() => setActiveTab("products")}
+                style={{ ...styles.primaryButton, marginTop: "20px" }}
+              >
+                Browse Products
+              </button>
+            </div>
+          ) : (
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>Order ID</th>
+                  <th style={styles.th}>Product</th>
+                  <th style={styles.th}>Quantity</th>
+                  <th style={styles.th}>Total</th>
+                  <th style={styles.th}>Status</th>
+                  <th style={styles.th}>Date</th>
+                  <th style={styles.th}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {purchases.map((purchase) => (
+                  <tr key={purchase.id} style={styles.tr}>
+                    <td style={styles.td}>
+                      <strong>#{purchase.id}</strong>
+                    </td>
+                    <td style={styles.td}>
+                      <div style={{ fontWeight: "500" }}>{purchase.product_name}</div>
+                      <div style={styles.smallText}>
+                        ${parseFloat(purchase.unit_price).toFixed(2)} each
+                      </div>
+                    </td>
+                    <td style={styles.td}>{purchase.quantity}</td>
+                    <td style={styles.td}>
+                      <strong>${parseFloat(purchase.total_price).toFixed(2)}</strong>
+                    </td>
+                    <td style={styles.td}>
+                      <span
+                        style={{
+                          ...styles.statusBadge,
+                          ...getStatusStyle(purchase.status),
+                        }}
+                      >
+                        {purchase.status.charAt(0).toUpperCase() + purchase.status.slice(1)}
+                      </span>
+                    </td>
+                    <td style={styles.td}>
+                      {new Date(purchase.created_at).toLocaleDateString()}
+                    </td>
+                    <td style={styles.td}>
+                      <button
+                        onClick={() => {
+                          setSelectedOrder(purchase);
+                          setShowOrderDetails(true);
+                        }}
+                        style={styles.editButton}
+                      >
+                        View Details
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {/* Order Details Modal */}
+      {showOrderDetails && selectedOrder && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modal}>
+            <h3 style={styles.modalTitle}>
+              Order Details - #{selectedOrder.id}
+              <div style={{ fontSize: "14px", color: "#6b7280", fontWeight: "normal", marginTop: "5px" }}>
+                Placed on {new Date(selectedOrder.created_at).toLocaleDateString()}
+              </div>
+            </h3>
+            
+            <div style={styles.customerDetailsGrid}>
+              <div style={styles.detailItem}>
+                <div style={styles.detailLabel}>Product</div>
+                <div style={styles.detailValue}>{selectedOrder.product_name}</div>
+              </div>
+              
+              <div style={styles.detailItem}>
+                <div style={styles.detailLabel}>Quantity</div>
+                <div style={styles.detailValue}>{selectedOrder.quantity} units</div>
+              </div>
+              
+              <div style={styles.detailItem}>
+                <div style={styles.detailLabel}>Unit Price</div>
+                <div style={styles.detailValue}>
+                  ${parseFloat(selectedOrder.unit_price).toFixed(2)}
+                </div>
+              </div>
+              
+              <div style={styles.detailItem}>
+                <div style={styles.detailLabel}>Total Amount</div>
+                <div style={styles.detailValue}>
+                  <strong>${parseFloat(selectedOrder.total_price).toFixed(2)}</strong>
+                </div>
+              </div>
+              
+              <div style={styles.detailItem}>
+                <div style={styles.detailLabel}>Status</div>
+                <div style={styles.detailValue}>
+                  <span
+                    style={{
+                      ...styles.statusBadge,
+                      ...getStatusStyle(selectedOrder.status),
+                    }}
+                  >
+                    {selectedOrder.status.charAt(0).toUpperCase() + selectedOrder.status.slice(1)}
+                  </span>
+                </div>
+              </div>
+              
+              <div style={styles.detailItem}>
+                <div style={styles.detailLabel}>Order Date</div>
+                <div style={styles.detailValue}>
+                  {new Date(selectedOrder.created_at).toLocaleString()}
+                </div>
+              </div>
+              
+              <div style={{ ...styles.detailItem, gridColumn: "span 2" }}>
+                <div style={styles.detailLabel}>Customer Name</div>
+                <div style={styles.detailValue}>{selectedOrder.customer_name}</div>
+              </div>
+              
+              <div style={{ ...styles.detailItem, gridColumn: "span 2" }}>
+                <div style={styles.detailLabel}>Email</div>
+                <div style={styles.detailValue}>{selectedOrder.customer_email}</div>
+              </div>
+              
+              <div style={{ ...styles.detailItem, gridColumn: "span 2" }}>
+                <div style={styles.detailLabel}>Phone</div>
+                <div style={styles.detailValue}>{selectedOrder.customer_mobile}</div>
+              </div>
+              
+              <div style={{ ...styles.detailItem, gridColumn: "span 2" }}>
+                <div style={styles.detailLabel}>Shipping Address</div>
+                <div style={styles.addressBox}>
+                  {selectedOrder.customer_address}
+                </div>
+              </div>
+              
+              {selectedOrder.notes && (
+                <div style={{ ...styles.detailItem, gridColumn: "span 2" }}>
+                  <div style={styles.detailLabel}>Notes</div>
+                  <div style={styles.addressBox}>
+                    {selectedOrder.notes}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div style={styles.modalActions}>
+              <button
+                onClick={() => {
+                  setShowOrderDetails(false);
+                  setSelectedOrder(null);
+                }}
+                style={styles.primaryButton}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Purchase Modal - FIXED VERSION */}
       {showPurchaseModal && (
