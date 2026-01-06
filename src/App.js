@@ -330,6 +330,48 @@ function App() {
     }
   };
 
+  /* ================= TRACKING FUNCTIONS ================= */
+  const fetchTrackingEvents = async (purchaseId) => {
+    try {
+      const response = await axiosInstance.get(`/api/purchases/${purchaseId}/tracking/`);
+      return response.data;
+    } catch (error) {
+      console.error("Failed to fetch tracking events:", error);
+      showToast("Failed to load tracking information", "error");
+      return null;
+    }
+  };
+
+  const addTrackingEvent = async (purchaseId, eventData) => {
+    try {
+      const response = await axiosInstance.post(
+        `/api/purchases/${purchaseId}/tracking/add/`,
+        eventData
+      );
+      showToast("Tracking event added successfully");
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.error("Failed to add tracking event:", error);
+      showToast(error.response?.data?.error || "Failed to add tracking event", "error");
+      return { success: false };
+    }
+  };
+
+  const updateTrackingInfo = async (purchaseId, trackingData) => {
+    try {
+      const response = await axiosInstance.put(
+        `/api/purchases/${purchaseId}/tracking-info/`,
+        trackingData
+      );
+      showToast("Tracking information updated successfully");
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.error("Failed to update tracking info:", error);
+      showToast(error.response?.data?.error || "Failed to update tracking info", "error");
+      return { success: false };
+    }
+  };
+
   /* ================= COMPONENT RENDER ================= */
   if (loading) {
     return (
@@ -366,6 +408,9 @@ function App() {
         onDeleteProduct={deleteProduct}
         onUpdateProduct={updateProduct}
         onUpdatePurchaseStatus={updatePurchaseStatus}
+        fetchTrackingEvents={fetchTrackingEvents}
+        addTrackingEvent={addTrackingEvent}
+        updateTrackingInfo={updateTrackingInfo}
         showProductModal={showProductModal}
         setShowProductModal={setShowProductModal}
         editingProduct={editingProduct}
@@ -388,6 +433,7 @@ function App() {
       showPurchaseModal={showPurchaseModal}
       setShowPurchaseModal={setShowPurchaseModal}
       onCreatePurchase={createPurchase}
+      fetchTrackingEvents={fetchTrackingEvents}
       toasts={toasts}
     />
   );
@@ -538,6 +584,9 @@ function AdminDashboard({
   onDeleteProduct,
   onUpdateProduct,
   onUpdatePurchaseStatus,
+  fetchTrackingEvents,
+  addTrackingEvent,
+  updateTrackingInfo,
   showProductModal,
   setShowProductModal,
   editingProduct,
@@ -554,6 +603,20 @@ function AdminDashboard({
   // State for customer details modal
   const [showCustomerDetails, setShowCustomerDetails] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
+
+  // State for tracking management modal
+  const [showTrackingModal, setShowTrackingModal] = useState(false);
+  const [selectedPurchaseForTracking, setSelectedPurchaseForTracking] = useState(null);
+  const [trackingData, setTrackingData] = useState(null);
+  const [trackingForm, setTrackingForm] = useState({
+    tracking_number: '',
+    delivery_partner: '',
+    estimated_delivery: ''
+  });
+  const [newEventForm, setNewEventForm] = useState({
+    event_type: '',
+    event_message: ''
+  });
 
   useEffect(() => {
     calculateStats();
@@ -596,6 +659,66 @@ function AdminDashboard({
       total: purchase.total_price,
     });
     setShowCustomerDetails(true);
+  };
+
+  // Function to handle tracking modal
+  const handleTrackOrder = async (purchase) => {
+    setSelectedPurchaseForTracking(purchase);
+    setTrackingForm({
+      tracking_number: purchase.tracking_number || '',
+      delivery_partner: purchase.delivery_partner || '',
+      estimated_delivery: purchase.estimated_delivery ? purchase.estimated_delivery.split('T')[0] : ''
+    });
+    
+    // Fetch tracking events
+    const data = await fetchTrackingEvents(purchase.id);
+    if (data) {
+      setTrackingData(data);
+    }
+    
+    setShowTrackingModal(true);
+  };
+
+  // Function to save tracking info
+  const handleSaveTrackingInfo = async () => {
+    if (!selectedPurchaseForTracking) return;
+    
+    const result = await updateTrackingInfo(selectedPurchaseForTracking.id, {
+      ...trackingForm,
+      estimated_delivery: trackingForm.estimated_delivery || null
+    });
+    
+    if (result.success) {
+      // Refresh tracking data
+      const data = await fetchTrackingEvents(selectedPurchaseForTracking.id);
+      if (data) {
+        setTrackingData(data);
+      }
+    }
+  };
+
+  // Function to add tracking event
+  const handleAddTrackingEvent = async () => {
+    if (!selectedPurchaseForTracking || !newEventForm.event_type || !newEventForm.event_message) {
+      showToast("Please fill all fields", "error");
+      return;
+    }
+    
+    const result = await addTrackingEvent(selectedPurchaseForTracking.id, newEventForm);
+    
+    if (result.success) {
+      // Refresh tracking data
+      const data = await fetchTrackingEvents(selectedPurchaseForTracking.id);
+      if (data) {
+        setTrackingData(data);
+      }
+      
+      // Reset form
+      setNewEventForm({
+        event_type: '',
+        event_message: ''
+      });
+    }
   };
 
   return (
@@ -822,6 +945,13 @@ function AdminDashboard({
                   </td>
                   <td style={styles.td}>
                     <button
+                      onClick={() => handleTrackOrder(purchase)}
+                      style={{...styles.editButton, marginRight: '5px'}}
+                      title="Track Order"
+                    >
+                      📦 Track
+                    </button>
+                    <button
                       onClick={() => onUpdatePurchaseStatus(purchase.id, 'delivered')}
                       style={styles.quickButton}
                       title="Mark as Delivered"
@@ -973,6 +1103,169 @@ function AdminDashboard({
         </div>
       )}
 
+      {/* Tracking Management Modal */}
+      {showTrackingModal && selectedPurchaseForTracking && (
+        <div style={styles.modalOverlay}>
+          <div style={{...styles.modal, maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto'}}>
+            <h3 style={styles.modalTitle}>
+              Order #{selectedPurchaseForTracking.id} - Tracking Management
+              <div style={{ fontSize: "14px", color: "#6b7280", fontWeight: "normal", marginTop: "5px" }}>
+                {selectedPurchaseForTracking.product_name}
+              </div>
+            </h3>
+            
+            {/* Tracking Info Section */}
+            <div style={{ background: '#f9fafb', padding: '20px', borderRadius: '10px', marginBottom: '20px' }}>
+              <h4 style={{ margin: '0 0 15px 0', fontSize: '16px' }}>Tracking Information</h4>
+              
+              <div style={{ marginBottom: '12px' }}>
+                <label style={styles.label}>Tracking Number</label>
+                <input
+                  value={trackingForm.tracking_number}
+                  onChange={(e) => setTrackingForm({...trackingForm, tracking_number: e.target.value})}
+                  placeholder="e.g., FMPP3331703844"
+                  style={styles.input}
+                />
+              </div>
+              
+              <div style={{ marginBottom: '12px' }}>
+                <label style={styles.label}>Delivery Partner</label>
+                <input
+                  value={trackingForm.delivery_partner}
+                  onChange={(e) => setTrackingForm({...trackingForm, delivery_partner: e.target.value})}
+                  placeholder="e.g., Ekart Logistics, FedEx"
+                  style={styles.input}
+                />
+              </div>
+              
+              <div style={{ marginBottom: '12px' }}>
+                <label style={styles.label}>Estimated Delivery Date</label>
+                <input
+                  type="date"
+                  value={trackingForm.estimated_delivery}
+                  onChange={(e) => setTrackingForm({...trackingForm, estimated_delivery: e.target.value})}
+                  style={styles.input}
+                />
+              </div>
+              
+              <button
+                onClick={handleSaveTrackingInfo}
+                style={{...styles.primaryButton, width: '100%'}}
+              >
+                Save Tracking Info
+              </button>
+            </div>
+            
+            {/* Current Timeline */}
+            {trackingData && trackingData.events && trackingData.events.length > 0 && (
+              <div style={{ marginBottom: '20px' }}>
+                <h4 style={{ margin: '0 0 15px 0', fontSize: '16px' }}>Current Timeline</h4>
+                <div style={{ position: 'relative', paddingLeft: '30px' }}>
+                  {/* Vertical Line */}
+                  <div style={{
+                    position: 'absolute',
+                    left: '10px',
+                    top: '10px',
+                    bottom: '10px',
+                    width: '2px',
+                    background: '#10b981'
+                  }} />
+                  
+                  {trackingData.events.map((event, index) => (
+                    <div key={event.id} style={{ marginBottom: '20px', position: 'relative' }}>
+                      {/* Dot */}
+                      <div style={{
+                        position: 'absolute',
+                        left: '-25px',
+                        top: '2px',
+                        width: '12px',
+                        height: '12px',
+                        borderRadius: '50%',
+                        background: '#10b981',
+                        border: '2px solid white',
+                        boxShadow: '0 0 0 2px #10b981'
+                      }} />
+                      
+                      <div style={{ fontSize: '14px', fontWeight: '600', color: '#1f2937', marginBottom: '4px' }}>
+                        {event.event_type_display}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>
+                        {new Date(event.timestamp).toLocaleString()}
+                      </div>
+                      <div style={{ fontSize: '13px', color: '#4b5563' }}>
+                        {event.event_message}
+                      </div>
+                      {event.created_by_username && (
+                        <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px' }}>
+                          by {event.created_by_username}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Add New Event Section */}
+            <div style={{ background: '#f0f7ff', padding: '20px', borderRadius: '10px', marginBottom: '20px' }}>
+              <h4 style={{ margin: '0 0 15px 0', fontSize: '16px' }}>Add New Event</h4>
+              
+              <div style={{ marginBottom: '12px' }}>
+                <label style={styles.label}>Event Type</label>
+                <select
+                  value={newEventForm.event_type}
+                  onChange={(e) => setNewEventForm({...newEventForm, event_type: e.target.value})}
+                  style={styles.input}
+                >
+                  <option value="">Select Event Type...</option>
+                  <option value="confirmed">Order Confirmed</option>
+                  <option value="processed">Order Processed</option>
+                  <option value="picked_up">Picked Up by Delivery Partner</option>
+                  <option value="shipped">Shipped</option>
+                  <option value="in_transit">In Transit</option>
+                  <option value="reached_hub">Reached Local Hub</option>
+                  <option value="out_for_delivery">Out for Delivery</option>
+                  <option value="delivered">Delivered</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+              
+              <div style={{ marginBottom: '12px' }}>
+                <label style={styles.label}>Event Message</label>
+                <textarea
+                  value={newEventForm.event_message}
+                  onChange={(e) => setNewEventForm({...newEventForm, event_message: e.target.value})}
+                  placeholder="Enter custom message for this event..."
+                  style={{...styles.input, minHeight: '80px', resize: 'vertical'}}
+                  rows="3"
+                />
+              </div>
+              
+              <button
+                onClick={handleAddTrackingEvent}
+                style={{...styles.primaryButton, width: '100%'}}
+              >
+                Add Event to Timeline
+              </button>
+            </div>
+            
+            <div style={styles.modalActions}>
+              <button
+                onClick={() => {
+                  setShowTrackingModal(false);
+                  setSelectedPurchaseForTracking(null);
+                  setTrackingData(null);
+                  setNewEventForm({ event_type: '', event_message: '' });
+                }}
+                style={{...styles.secondaryButton, flex: '1'}}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <ToastContainer toasts={toasts} />
     </div>
   );
@@ -991,11 +1284,13 @@ function CustomerDashboard({
   showPurchaseModal,
   setShowPurchaseModal,
   onCreatePurchase,
+  fetchTrackingEvents,
   toasts,
 }) {
   const [activeTab, setActiveTab] = useState("products");
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showOrderDetails, setShowOrderDetails] = useState(false);
+  const [trackingData, setTrackingData] = useState(null);
 
   const filteredProducts = products.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase())
@@ -1176,8 +1471,13 @@ function CustomerDashboard({
                     </td>
                     <td style={styles.td}>
                       <button
-                        onClick={() => {
+                        onClick={async () => {
                           setSelectedOrder(purchase);
+                          // Fetch tracking events
+                          const data = await fetchTrackingEvents(purchase.id);
+                          if (data) {
+                            setTrackingData(data);
+                          }
                           setShowOrderDetails(true);
                         }}
                         style={styles.editButton}
@@ -1281,6 +1581,70 @@ function CustomerDashboard({
                 </div>
               )}
             </div>
+            
+            {/* Tracking Timeline */}
+            {trackingData && trackingData.tracking_number && (
+              <div style={{ marginTop: '20px', padding: '15px', background: '#f0f7ff', borderRadius: '10px' }}>
+                <h4 style={{ margin: '0 0 10px 0', fontSize: '15px', color: '#1f2937' }}>Tracking Information</h4>
+                <div style={{ fontSize: '13px', color: '#4b5563', marginBottom: '5px' }}>
+                  <strong>Tracking #:</strong> {trackingData.tracking_number}
+                </div>
+                {trackingData.delivery_partner && (
+                  <div style={{ fontSize: '13px', color: '#4b5563', marginBottom: '5px' }}>
+                    <strong>Delivery Partner:</strong> {trackingData.delivery_partner}
+                  </div>
+                )}
+                {trackingData.estimated_delivery && (
+                  <div style={{ fontSize: '13px', color: '#4b5563' }}>
+                    <strong>Estimated Delivery:</strong> {new Date(trackingData.estimated_delivery).toLocaleDateString()}
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {trackingData && trackingData.events && trackingData.events.length > 0 && (
+              <div style={{ marginTop: '20px' }}>
+                <h4 style={{ margin: '0 0 15px 0', fontSize: '15px', color: '#1f2937' }}>Order Timeline</h4>
+                <div style={{ position: 'relative', paddingLeft: '30px' }}>
+                  {/* Vertical Line */}
+                  <div style={{
+                    position: 'absolute',
+                    left: '10px',
+                    top: '10px',
+                    bottom: '10px',
+                    width: '2px',
+                    background: '#10b981'
+                  }} />
+                  
+                  {trackingData.events.map((event, index) => (
+                    <div key={event.id} style={{ marginBottom: '20px', position: 'relative' }}>
+                      {/* Dot */}
+                      <div style={{
+                        position: 'absolute',
+                        left: '-25px',
+                        top: '2px',
+                        width: '12px',
+                        height: '12px',
+                        borderRadius: '50%',
+                        background: '#10b981',
+                        border: '2px solid white',
+                        boxShadow: '0 0 0 2px #10b981'
+                      }} />
+                      
+                      <div style={{ fontSize: '14px', fontWeight: '600', color: '#1f2937', marginBottom: '4px' }}>
+                        {event.event_type_display}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>
+                        {new Date(event.timestamp).toLocaleString()}
+                      </div>
+                      <div style={{ fontSize: '13px', color: '#4b5563' }}>
+                        {event.event_message}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             
             <div style={styles.modalActions}>
               <button
